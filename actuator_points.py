@@ -5,6 +5,7 @@ import time
 import random 
 import csv
 import os
+from enum import Enum
 
 class Application(object):
     # constants
@@ -20,9 +21,11 @@ class Application(object):
     LINE_WIDTH = 2
     MARKER_WIDTH = 4
     MARKER_CENTER_WIDTH = 7
-    CAMERA = 0
-    CSV = 1
-      
+
+    class INPUT_TYPE(Enum):
+        Camera = 0
+        CSV = 1          
+
     # public methods
     def __init__(self, name):
         self.name = name
@@ -35,13 +38,12 @@ class Application(object):
         self.csv_queue = []
         
     def setCamera(self, source):
-        self.input_source = self.CAMERA
+        self.input_source = Application.INPUT_TYPE.Camera
         self.video_capture = cv2.VideoCapture(source)
-        self.getFrame()
+        self.__getFrame()
         
     def setInputFile(self, source):
-        global CSV
-        self.input_source = self.CSV
+        self.input_source = Application.INPUT_TYPE.CSV
         self.input_file_template = source + '/' + source[source.rfind('/')+1 :]
         self.input_file_csv = open(self.input_file_template+".csv", mode="r")
         self.input_reader = csv.reader(self.input_file_csv)
@@ -63,30 +65,28 @@ class Application(object):
         self.output_writer.writerow(head)
                 
     def close(self):
-        global CAMERA
-        global CSV
         cv2.destroyWindow(self.name)
-        if self.input_source == self.CAMERA:
+        if self.input_source == Application.INPUT_TYPE.Camera:
             self.video_capture.release()
-        if self.input_source == self.CSV:
+        if self.input_source == Application.INPUT_TYPE.CSV:
             self.input_file_csv.close()
         if self.output_mode:
             self.output_file_csv.close()
 
     def run(self):
-        self.getFrame()
-        self.points_success =  self.findPoints()
+        self.__getFrame()
+        self.points_success =  self.__findPoints()
         if self.points_success:
-            self.findAngle()
-        self.drawWindow()
-        return self.keyboardResponse()
+            self.__findAngle()
+        self.__drawWindow()
+        return self.__keyboardResponse()
     
     # private methods
-    def findPoints(self):
+    def __findPoints(self):
         frame_copy = numpy.array(self.frame[:,:,0])
-        frame_copy = cv2.medianBlur(frame_copy, self.BLUR_FACTOR)
-        cv2.filter2D(frame_copy, -1, self.KERNEL, frame_copy)
-        frame_copy = cv2.medianBlur(frame_copy, self.BLUR_FACTOR)
+        frame_copy = cv2.medianBlur(frame_copy, Application.BLUR_FACTOR)
+        cv2.filter2D(frame_copy, -1, Application.KERNEL, frame_copy)
+        frame_copy = cv2.medianBlur(frame_copy, Application.BLUR_FACTOR)
         thresh = cv2.threshold(frame_copy, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
         contours = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
@@ -100,7 +100,7 @@ class Application(object):
             mask = numpy.zeros_like(frame_copy[:, :, 0])
             cv2.drawContours(mask, [approx], -1, 255, -1)
             mean = cv2.mean(frame_copy, mask=mask)
-            if (mean[0] > self.MARKER_THRESHOLD):
+            if (mean[0] > Application.MARKER_THRESHOLD):
                 m = cv2.moments(approx)
                 try:
                     x = int(m["m10"] / m["m00"]) 
@@ -166,7 +166,7 @@ class Application(object):
         self.prev_points = points
         return 1
     
-    def findAngle(self):
+    def __findAngle(self):
         points = self.prev_points.copy()
         mid = self.prev_points[self.mid_point]
         points.remove(mid)
@@ -183,11 +183,11 @@ class Application(object):
         except:
             self.angle = -1
 
-    def getFrame(self):
-        if self.input_source == self.CAMERA:
+    def __getFrame(self):
+        if self.input_source == Application.INPUT_TYPE.Camera:
             self.success, self.frame = self.video_capture.read()
 
-        if self.input_source == self.CSV:
+        if self.input_source == Application.INPUT_TYPE.CSV:
             try:
                 data = next(self.input_reader)
                 self.frame = cv2.imread(data[8])
@@ -195,34 +195,34 @@ class Application(object):
             except StopIteration:
                 self.success = 0
 
-    def storeFrame(self, id, prefix):
+    def __storeFrame(self, id, prefix):
         name = f"{self.output_file_template}_{prefix}_{id}.png"
         cv2.imwrite(name, self.frame)
         self.csv_queue.append(name)
 
-    def storeCSV(self):
+    def __storeCSV(self):
         data = [number for point in self.prev_points for number in point] + [self.mid_point+1] + [self.angle] + self.csv_queue
         self.output_writer.writerow(data)
         self.csv_queue.clear()
     
-    def drawWindow(self, recording=False):
+    def __drawWindow(self, recording=False):
         window_id = str(time.clock_gettime(time.CLOCK_REALTIME)).replace('.', '').ljust(17, '0')
         if self.output_mode:
-            self.storeFrame(window_id, 'orig')
+            self.__storeFrame(window_id, 'orig')
             pass
         if self.points_success:
             for i in range(len(self.prev_points)):
-                width = self.MARKER_CENTER_WIDTH if i == self.mid_point else self.MARKER_WIDTH
-                cv2.circle(self.frame, self.prev_points[i], width, self.MARKER_COLORS[i], -1)
+                width = Application.MARKER_CENTER_WIDTH if i == self.mid_point else Application.MARKER_WIDTH
+                cv2.circle(self.frame, self.prev_points[i], width, Application.MARKER_COLORS[i], -1)
             for i in range(len(self.prev_points)):
-                cv2.line(self.frame, self.prev_points[self.mid_point], self.prev_points[i], self.LINE_COLOR, self.LINE_WIDTH)
+                cv2.line(self.frame, self.prev_points[self.mid_point], self.prev_points[i], Application.LINE_COLOR, Application.LINE_WIDTH)
             print(self.angle)
         cv2.imshow(self.name, self.frame)
         if self.output_mode:
-            self.storeFrame(window_id, 'marked')
-            self.storeCSV()
+            self.__storeFrame(window_id, 'marked')
+            self.__storeCSV()
             
-    def keyboardResponse(self):
+    def __keyboardResponse(self):
         k = cv2.pollKey()
         if (k == 8): # backspace
             app.success = False
@@ -234,10 +234,10 @@ class Application(object):
 ################################################################################
 
 app = Application("Marker tracking")
-app.setCamera("/dev/video2")
-app.output_mode = True
-app.setOutputFile("./recordings/test4")
-# app.setInputFile("./recordings/test3")
+# app.setCamera("/dev/video2")
+app.output_mode = False
+# app.setOutputFile("./recordings/test4")
+app.setInputFile("./recordings/test4")
 while app.success:
     app.run()
 app.close()
