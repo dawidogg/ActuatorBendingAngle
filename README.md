@@ -37,7 +37,7 @@ app.close()
 ### CSV structure
 
 |x1|y1|x2|y2|x3|y3|vertex|angle|orig\_path|marked\_path|
------------------------------------------------------
+|---|---|---|---|---|---|---|---|---|---|
 |531|222|314|250|380|214|2|21|./test/test\_orig\_1.png|./test/test\_marked\_1.png|
 
 |555|215|332|236|401|202|2|20|./test/test\_orig\_1.png|./test/test\_marked\_2.png|
