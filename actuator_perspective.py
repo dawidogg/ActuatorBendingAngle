@@ -21,7 +21,8 @@ class Application(object):
     LINE_WIDTH = 2
     MARKER_WIDTH = 4
     MARKER_CENTER_WIDTH = 7
-
+    CENTER_BOX_WIDTH = 7
+    
     class INPUT_TYPE(Enum):
         Camera = 0
         CSV = 1          
@@ -30,12 +31,13 @@ class Application(object):
     def __init__(self, name):
         self.name = name
         cv2.namedWindow(self.name)
-        self.prev_points = [(0, 0), (0, 0), (0, 0)]
+        self.prev_points = [[0, 0], [0, 0], [0, 0]]
         self.mid_point = 0
         self.angle = 0
         self.calibrating_state = True
         self.output_mode = False
         self.csv_queue = []
+        self.prev_box = []
         
     def setCamera(self, source):
         self.input_source = Application.INPUT_TYPE.Camera
@@ -63,7 +65,7 @@ class Application(object):
         self.output_writer = csv.writer(self.output_file_csv)
         head = ["x1", "y1", "x2", "y2", "x3", "y3", "mid", "angle","orig_path", "marked_path"]
         self.output_writer.writerow(head)
-                
+
     def close(self):
         cv2.destroyWindow(self.name)
         if self.input_source == Application.INPUT_TYPE.Camera:
@@ -92,25 +94,26 @@ class Application(object):
 
         contours = sorted(contours, key = lambda x: cv2.arcLength(x, True), reverse=True)
         points = []
+        boxes = []
         frame_copy = cv2.cvtColor(frame_copy, cv2.COLOR_GRAY2BGR)
 
         for c in contours:
-            epsilon = 0.01 * cv2.arcLength(c, True)
+            epsilon = 0.1 * cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, epsilon, True)
             mask = numpy.zeros_like(frame_copy[:, :, 0])
             cv2.drawContours(mask, [approx], -1, 255, -1)
             mean = cv2.mean(frame_copy, mask=mask)
-            if (mean[0] > Application.MARKER_THRESHOLD):
+            if (mean[0] > Application.MARKER_THRESHOLD) and len(approx) == 4:
                 m = cv2.moments(approx)
                 try:
                     x = int(m["m10"] / m["m00"]) 
                     y = int(m["m01"] / m["m00"]) 
-                    points.append((x, y))
+                    points.append([x, y])
+                    boxes.append(approx)
                 except:
                     return 0
             if self.calibrating_state and len(points) >= 3:
                break
-
         if len(points) < 3:
             return 0
 
@@ -151,9 +154,12 @@ class Application(object):
                     best_cost = current_cost
 
             new_points = [[], [], []]
+            new_boxes = [[], [], []]
             for i in range(3):
                 new_points[i] = points[solutions[best_index][i]]
+                new_boxes[i] = boxes[solutions[best_index][i]]
             points = new_points
+            boxes = new_boxes
 
         if self.calibrating_state:
             min_y = 0
@@ -164,12 +170,44 @@ class Application(object):
             
         self.calibrating_state = False
         self.prev_points = points
+        self.prev_box = numpy.float32(boxes)
         return 1
     
     def __findAngle(self):
+        # Perspective transform
         points = self.prev_points.copy()
-        mid = self.prev_points[self.mid_point]
-        points.remove(mid)
+#        print(f"Original points:\n{self.prev_points}")
+        boundaries = numpy.float32([
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+        ])
+        # matrix = numpy.zeros((3, 3))
+        # for i in range(len(self.prev_box)):
+        #     mat = cv2.getPerspectiveTransform(self.prev_box[i], boundaries)
+        #     matrix = numpy.add(matrix, mat)
+        # matrix = matrix / 3
+        matrix = cv2.getPerspectiveTransform(self.prev_box[self.mid_point], boundaries)
+        matrix[2][0:2] = [0, 0]
+        matrix[0][2] = self.frame.shape[1]/3
+        matrix[1][2] = self.frame.shape[0]/3
+
+        for i in range(len(points)):
+            # points[i].append(1)
+            points[i] = numpy.matmul(matrix, numpy.array(points[i]+[1]))
+            # print(points[i])
+            points[i] = points[i][0:2]
+
+        self.frame = cv2.warpPerspective(self.frame, matrix, (self.frame.shape[1], self.frame.shape[0]))        
+        for p in points:
+            p = [int(p[0]), int(p[1])]
+            # print(p)
+            cv2.circle(self.frame, p, 4, (0, 0, 255), -1)
+        mid = points[self.mid_point]
+        cv2.circle(self.frame, [int(mid[0]), int(mid[1])], 7, (0, 0, 255), -1)
+        # Law of cosines
+        del points[self.mid_point]
         vector = []
         vector.append(tuple(numpy.subtract(mid, points[0])))
         vector.append(tuple(numpy.subtract(mid, points[1])))
@@ -177,12 +215,15 @@ class Application(object):
         mag = []
         for v in vector:
             mag.append(numpy.dot(v, v))
+        # print(f"Magnitute:{mag}")
         try:
             self.angle = numpy.arccos((mag[0] + mag[1] - mag[2]) / (2*numpy.sqrt(mag[0]*mag[1])))
             self.angle = int((self.angle * 180 / numpy.pi))
         except:
             self.angle = -1
 
+        # print("------------------------------------------------------------")
+        
     def __getFrame(self):
         if self.input_source == Application.INPUT_TYPE.Camera:
             self.success, self.frame = self.video_capture.read()
@@ -211,12 +252,18 @@ class Application(object):
             self.__storeFrame(window_id, 'orig')
             pass
         if self.points_success:
-            for i in range(len(self.prev_points)):
-                width = Application.MARKER_CENTER_WIDTH if i == self.mid_point else Application.MARKER_WIDTH
-                cv2.circle(self.frame, self.prev_points[i], width, Application.MARKER_COLORS[i], -1)
-            for i in range(len(self.prev_points)):
-                cv2.line(self.frame, self.prev_points[self.mid_point], self.prev_points[i], Application.LINE_COLOR, Application.LINE_WIDTH)
-            print(self.angle)
+            # for i in range(len(self.prev_points)):
+            #     width = Application.MARKER_CENTER_WIDTH if i == self.mid_point else Application.MARKER_WIDTH
+            #     cv2.circle(self.frame, self.prev_points[i], width, Application.MARKER_COLORS[i], -1)
+            # for i in range(len(self.prev_points)):
+            #     cv2.line(self.frame, self.prev_points[self.mid_point], self.prev_points[i], Application.LINE_COLOR, Application.LINE_WIDTH)
+            print(f"Angle: {self.angle}")
+        # Show center box
+        # try:
+        #     cv2.drawContours(self.frame, self.prev_box, -1, Application.MARKER_COLORS[self.mid_point], Application.CENTER_BOX_WIDTH)
+        # except:
+        #     pass
+        print(f"Angle: {self.angle}")
         cv2.imshow(self.name, self.frame)
         if self.output_mode:
             self.__storeFrame(window_id, 'marked')
@@ -228,7 +275,7 @@ class Application(object):
             app.success = False
         if (k == 13): # enter
             self.calibrating_state = True
-            self.prev_points = [(0, 0), (0, 0), (0, 0)]
+            self.prev_points = [[0, 0], [0, 0], [0, 0]]
             # self.mid_point = (self.mid_point + 1) % 3
         
 ################################################################################
@@ -236,9 +283,10 @@ class Application(object):
 app = Application("Marker tracking")
 # app.setCamera("/dev/video2")
 app.output_mode = False
-# app.setOutputFile("./recordings/test90")
+# app.setOutputFile("./recordings/test90_perspective")
 app.setInputFile("./recordings/test90")
 while app.success:
     app.run()
+  #   time.sleep(0.5)
 app.close()
     

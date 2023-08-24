@@ -68,7 +68,7 @@ pts2 = [center,
 pts2[1] = [pts2[0][0], pts2[2][1]]
 pts2[3] = [pts2[2][0], pts2[0][1]]
 pts2 = numpy.float32(pts2)
-
+print(pts2)
 matrix = cv2.getPerspectiveTransform(white_squares[0], pts2)
 result = cv2.warpPerspective(orig, matrix, (orig.shape[1], orig.shape[0]))
 
@@ -81,20 +81,38 @@ cv2.imshow("Perspective transform", frame)
 cv2.waitKey()
 cv2.destroyAllWindows()
 
-
+matrices = []
 for i in range(3):
-    
     matrix = cv2.getPerspectiveTransform(white_squares[i], pts2)
     matrix[2][0:2] = [0, 0]
     matrix[0][2] = orig.shape[1]/3
     matrix[1][2] = orig.shape[0]/3
-    result = cv2.warpPerspective(orig, matrix, (orig.shape[1], orig.shape[0]))
+    matrices.append(matrix)
+
+averaged_matrix = numpy.add(numpy.add(matrices[0], matrices[1]), matrices[2])/3
+print(averaged_matrix)
+result = cv2.warpPerspective(orig, averaged_matrix, (orig.shape[1], orig.shape[0]))
+centers_copy = centers.copy()
+print(centers_copy)
+for c in centers_copy:
+    c = numpy.matmul(averaged_matrix, c[0])
+    print(c)
+    c = [int(c[0]), int(c[1])]
+    cv2.circle(result, c, 4, (0, 0, 255), -1)
+print("------------------------------------------------------------")
+cv2.imshow("Perspective transform", result)
+cv2.waitKey()
+cv2.destroyAllWindows()
+
+
+for i in range(3):
+    result = cv2.warpPerspective(orig, matrices[i], (orig.shape[1], orig.shape[0]))
     centers_copy = centers.copy()
-    print(matrix)
+    print(matrices[i])
     print(centers_copy)
 
     for c in centers_copy:
-        c = numpy.matmul(matrix, c[0])
+        c = numpy.matmul(matrices[i], c[0])
         print(c)
         c = [int(c[0]), int(c[1])]
         cv2.circle(result, c, 4, (0, 0, 255), -1)
