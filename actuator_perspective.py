@@ -280,13 +280,14 @@ class Application(object):
         
 ################################################################################
 
+
 app = Application("Marker tracking")
-# app.setCamera("/dev/video2")
-app.output_mode = False
-# app.setOutputFile("./recordings/test90_perspective")
+# app.setCamera("/dev/video0")
+app.output_mode = True
+app.setOutputFile("./recordings/test91")
 app.setInputFile("./recordings/test90")
 while app.success:
     app.run()
-  #   time.sleep(0.5)
+    # time.sleep(0.1)
 app.close()
     
