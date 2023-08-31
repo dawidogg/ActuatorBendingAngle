@@ -288,6 +288,6 @@ app.setOutputFile("./recordings/test91")
 app.setInputFile("./recordings/test90")
 while app.success:
     app.run()
-    # time.sleep(0.1)
+    time.sleep(0.1)
 app.close()
     
