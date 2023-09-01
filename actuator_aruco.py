@@ -70,7 +70,7 @@ class Application:
         if self.success:
             self.__findAngle()
             self.__drawWindow()
-        return self.__keyboardResponse()
+        self.__keyboardResponse()
 
     def __getFrame(self):
         if self.input_source == Application.INPUT_TYPE.Camera:
@@ -80,7 +80,7 @@ class Application:
                 data = next(self.input_reader)
                 while data == ["# c pressed"]:
                     if not self.calibrated:
-                        self.perspectiveCalibration()
+                        self.__perspectiveCalibration()
                     else:
                         self.calibrated = False
                     data = next(self.input_reader)
@@ -114,7 +114,7 @@ class Application:
     parameters =  cv2.aruco.DetectorParameters()
     detector = cv2.aruco.ArucoDetector(dictionary, parameters)
     
-    def perspectiveCalibration(self):
+    def __perspectiveCalibration(self):
         markerCorners, markerIds, _ = Application.detector.detectMarkers(self.frame)
         markers = []
         for i in range(len(markerCorners)):
@@ -145,7 +145,6 @@ class Application:
 
         self.perspectiveMatrix = cv2.getPerspectiveTransform(markers, boundaries)
         self.calibrated = True
-        print(self.perspectiveMatrix)
 
     def __findAngle(self):
         try:
@@ -218,14 +217,14 @@ class Application:
             app.success = False
         if (k == 99): # c - calibrate
             if not self.calibrated:
-                self.perspectiveCalibration()
+                self.__perspectiveCalibration()
             else:
                 self.calibrated = False
             if self.output_mode:
                 self.output_writer.writerow(["# c pressed"])
         if (k == 114): # r - toggle record
             self.output_mode = not self.output_mode
-
+            
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--camera", action='store', help = "Camera path")
 parser.add_argument("-i", "--input", action='store', help = "Input file path")
@@ -233,9 +232,15 @@ parser.add_argument("-o", "--output", action='store', help = "Output file path")
 parser.add_argument("-d", "--delay", action='store', help = "Delay between frames")
 args = parser.parse_args()
 
-app = Application("ArUco markers")
+window_name = args.output
+if window_name == None:
+    window_name = args.input
+app = Application(f"ArUco markers - {window_name}")
 if args.camera != None:
-    app.setCamera(args.camera)
+    try:
+        app.setCamera(int(args.camera))
+    except:
+        app.setCamera(args.camera)
 if args.input != None:
     app.setInputFile(args.input)
 if args.output != None:

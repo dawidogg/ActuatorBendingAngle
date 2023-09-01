@@ -1,3 +1,4 @@
+
 import cv2
 import numpy
 import enum
@@ -234,10 +235,10 @@ class Application(object):
 ################################################################################
 
 app = Application("Marker tracking")
-# app.setCamera("/dev/video0")
+app.setCamera("/dev/video2")
 app.output_mode = False
 # app.setOutputFile("./recordings/test91")
-app.setInputFile("./recordings/test90")
+# app.setInputFile("./recordings/test90")
 while app.success:
     app.run()
 #    time.sleep(0.1)
