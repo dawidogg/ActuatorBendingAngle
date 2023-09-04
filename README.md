@@ -76,15 +76,15 @@ Here is a description of the private methods:
 Marker for the tips of actuator (ArUco 4x4, id 8, 2 pc.):
 
 ![ArUco 4x4 8](./readme_img/aruco_4x4_8.png)
-
+***
 Marker for the vertex of actuator (ArUco 4x4, id 9, 1 pc.):
 
 ![ArUco 4x4 9](./readme_img/aruco_4x4_9.png)
-
+***
 Marker for perspective calibration (ArUco 4x4, id 42, 4 pc.):
 
 ![ArUco 4x4 42](./readme_img/aruco_4x4_42.png)
-
+***
 Sheet for testing the angle accuracy:
 ![Angle Test](./readme_img/angle_test.svg)
 
