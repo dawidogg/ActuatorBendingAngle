@@ -8,6 +8,7 @@ The program can be called with multiple command line options.
 - `-i` or `--input`. A recorded file is selected as video input.
 - `-o` or `--output`. Indicates path where the recording will be saved.
 - `-d` or `--delay`. Useful when a recorded video is played and a slower frame rate is desired. Delay is specified in seconds, although the actual delay between the frames also varies depending on the image complexity.
+
 **Note:** `--camera` and `--input` cannot be specified together.
 
 ## Application class interface
