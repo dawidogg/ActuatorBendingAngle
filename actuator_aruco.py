@@ -50,7 +50,9 @@ class Application:
             if os.name == "nt": # Windows
                 os.system(f"rmdir {source}") 
         os.makedirs(self.output_dir)
+        print(self.output_dir)
         self.output_file_template = self.output_dir + '/' + self.output_dir[self.output_dir.rfind('/')+1 :]
+        print(self.output_file_template)
         self.output_file_csv = open(self.output_file_template+".csv", mode="w")
         self.output_writer = csv.writer(self.output_file_csv)
         head = ["x1", "y1", "x2", "y2", "x3", "y3", "mid", "angle","orig_path", "marked_path"]
@@ -106,7 +108,10 @@ class Application:
         self.csv_queue.append(name)
 
     def __storeCSV(self):
-        data = [number for point in self.markers for number in point] + [3] + [self.angle] + self.csv_queue
+        if len(self.markers) != 3:
+            data = [-1, -1, -1, -1, -1, -1, 3] + [self.angle] + self.csv_queue
+        else:
+            data = [number for point in self.markers for number in point] + [3] + [self.angle] + self.csv_queue
         self.output_writer.writerow(data)
         self.csv_queue.clear()
         
